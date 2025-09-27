@@ -39,17 +39,13 @@ def broadcast_player_list():
 
 
 def start():
-   def start():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind((HOST, PORT))
     server.listen()
 
-    # Only start server_commands if running locally
-    if os.environ.get("RAILWAY_ENVIRONMENT") is None:  # not on Railway
-        threading.Thread(target=server_commands, daemon=True).start()
-    else:
-        logging.info("Skipping interactive server_commands (running in hosted environment)")
+    # Disabled interactive server commands (not supported on Railway/Render)
+    # threading.Thread(target=server_commands, daemon=True).start()
 
     local_ip = get_local_ip()
     logging.info("Server started!")
@@ -58,6 +54,7 @@ def start():
     while True:
         conn, addr = server.accept()
         threading.Thread(target=client_handshake, args=(conn, addr), daemon=True).start()
+
 
 
 
@@ -228,28 +225,29 @@ def broadcast(message, sender_username):
 
 
 
-def server_commands():
-    while True:
-        cmd = input("> ").strip()
-        if cmd == "/list":
-            logging.info("Connected clients:")
-            for user in clients.keys():
-                logging.info(f" - {user}")
-        elif cmd.startswith("/kick "):
-            kick_user = cmd.split(" ", 1)[1]
-            conn = clients.get(kick_user)
-            if conn:
-                logging.info(f"Kicking {kick_user}")
-                try:
-                    conn.shutdown(socket.SHUT_RDWR)
-                except Exception:
-                    pass
-                conn.close()
-                clients.pop(kick_user, None)
-                clients_public_keys.pop(kick_user, None)
-        elif cmd.startswith("/broadcast "):
-            broadcast_msg = cmd.split(" ", 1)[1]
-            broadcast(json.dumps({"username": "Server", "message": broadcast_msg}), None)
+# def server_commands():
+#     while True:
+#         cmd = input("> ").strip()
+#         if cmd == "/list":
+#             logging.info("Connected clients:")
+#             for user in clients.keys():
+#                 logging.info(f" - {user}")
+#         elif cmd.startswith("/kick "):
+#             kick_user = cmd.split(" ", 1)[1]
+#             conn = clients.get(kick_user)
+#             if conn:
+#                 logging.info(f"Kicking {kick_user}")
+#                 try:
+#                     conn.shutdown(socket.SHUT_RDWR)
+#                 except Exception:
+#                     pass
+#                 conn.close()
+#                 clients.pop(kick_user, None)
+#                 clients_public_keys.pop(kick_user, None)
+#         elif cmd.startswith("/broadcast "):
+#             broadcast_msg = cmd.split(" ", 1)[1]
+#             broadcast(json.dumps({"username": "Server", "message": broadcast_msg}), None)
+
 
 
 if __name__ == "__main__":
