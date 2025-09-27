@@ -17,6 +17,25 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
+def get_local_ip():
+    """
+    Return a plausible local IP address for logging (not the public hostname).
+    This opens a UDP socket to a public IP and reads the local endpoint — it
+    does NOT send any data to the internet.
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # use a public IP (Cloudflare DNS) — no traffic actually sent
+        s.connect(("1.1.1.1", 80))
+        local_ip = s.getsockname()[0]
+    except Exception:
+        local_ip = "127.0.0.1"
+    finally:
+        try:
+            s.close()
+        except Exception:
+            pass
+    return local_ip
 
 def broadcast_player_list():
     players = []
@@ -36,12 +55,21 @@ def start():
     server.bind((HOST, PORT))
     server.listen()
 
+    local_ip = get_local_ip()
     logging.info("Server started!")
-    logging.info(f"Running on {HOST}:{PORT}")
+    logging.info(f"Running on {local_ip}:{PORT}, HOST: {HOST}")
+
+    # 👇 Friendly message for clients
+    external_host = os.environ.get("RAILWAY_STATIC_URL", "your-public-hostname")
+    logging.info("======================================")
+    logging.info(" Connect your client with:")
+    logging.info(f"   {external_host}:{PORT}")
+    logging.info("======================================")
 
     while True:
         conn, addr = server.accept()
         threading.Thread(target=client_handshake, args=(conn, addr), daemon=True).start()
+
 
 
 def client_handshake(conn, addr):
