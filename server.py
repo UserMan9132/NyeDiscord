@@ -39,12 +39,17 @@ def broadcast_player_list():
 
 
 def start():
+   def start():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind((HOST, PORT))
     server.listen()
 
-    threading.Thread(target=server_commands, daemon=True).start()
+    # Only start server_commands if running locally
+    if os.environ.get("RAILWAY_ENVIRONMENT") is None:  # not on Railway
+        threading.Thread(target=server_commands, daemon=True).start()
+    else:
+        logging.info("Skipping interactive server_commands (running in hosted environment)")
 
     local_ip = get_local_ip()
     logging.info("Server started!")
