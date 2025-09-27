@@ -1,12 +1,11 @@
 import os, base64, json, logging, threading, socket
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import padding
 
 # =========================
 # Config
 # =========================
 HOST = "0.0.0.0"
-PORT = int(os.environ.get("PORT", 50001))  # ✅ Use Railway-assigned port
+PORT = int(os.environ.get("PORT", 50001))  # ✅ Railway assigns a port if deployed
 
 clients = {}
 clients_info = {}
@@ -17,25 +16,6 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
-def get_local_ip():
-    """
-    Return a plausible local IP address for logging (not the public hostname).
-    This opens a UDP socket to a public IP and reads the local endpoint — it
-    does NOT send any data to the internet.
-    """
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        # use a public IP (Cloudflare DNS) — no traffic actually sent
-        s.connect(("1.1.1.1", 80))
-        local_ip = s.getsockname()[0]
-    except Exception:
-        local_ip = "127.0.0.1"
-    finally:
-        try:
-            s.close()
-        except Exception:
-            pass
-    return local_ip
 
 def broadcast_player_list():
     players = []
@@ -55,11 +35,9 @@ def start():
     server.bind((HOST, PORT))
     server.listen()
 
-    local_ip = get_local_ip()
     logging.info("Server started!")
-    logging.info(f"Running on {local_ip}:{PORT}, HOST: {HOST}")
+    logging.info(f"Running on 0.0.0.0:{PORT}")
 
-    # 👇 Friendly message for clients
     external_host = os.environ.get("RAILWAY_STATIC_URL", "your-public-hostname")
     logging.info("======================================")
     logging.info(" Connect your client with:")
@@ -68,22 +46,24 @@ def start():
 
     while True:
         conn, addr = server.accept()
+        logging.info(f"[DEBUG] Accepted connection from {addr}")
         threading.Thread(target=client_handshake, args=(conn, addr), daemon=True).start()
-
 
 
 def client_handshake(conn, addr):
     try:
-        # ✅ Peek to detect HTTP probes (Railway health check)
-        first = conn.recv(16, socket.MSG_PEEK).decode("utf-8", errors="ignore")
-        if first.startswith("GET") or first.startswith("HEAD") or first.startswith("POST"):
-            logging.warning(f"Ignoring HTTP/health-check from {addr}: {first.strip()}")
-            try:
-                conn.send(b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nChat server running")
-            except Exception:
-                pass
-            conn.close()
-            return
+        logging.info(f"[DEBUG] Starting handshake with {addr}")
+
+        # === Removed HTTP health check for now ===
+        # first = conn.recv(16, socket.MSG_PEEK).decode("utf-8", errors="ignore")
+        # if first.startswith("GET") or first.startswith("HEAD") or first.startswith("POST"):
+        #     logging.warning(f"Ignoring HTTP/health-check from {addr}: {first.strip()}")
+        #     try:
+        #         conn.send(b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nChat server running")
+        #     except Exception:
+        #         pass
+        #     conn.close()
+        #     return
 
         # ============================
         # Username handshake
